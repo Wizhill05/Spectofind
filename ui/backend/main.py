@@ -19,26 +19,53 @@ from spectofind import config as cfg
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load the model once at startup, release on shutdown."""
-    from ui.backend.inference_engine import InferenceEngine
+    """Load both models at startup, release on shutdown."""
+    # ── Custom EfficientNet model ─────────────────────────────────────────
+    try:
+        from ui.backend.inference_engine import InferenceEngine
+        print("[Spectofind] Loading custom model from", cfg.BEST_CKPT)
+        app.state.custom_engine = InferenceEngine(cfg.BEST_CKPT)
+        print("[Spectofind] Custom model loaded")
+    except FileNotFoundError:
+        print("[Spectofind] Custom model checkpoint not found — skipping")
+        app.state.custom_engine = None
 
-    print("[Spectofind] Loading model from", cfg.BEST_CKPT)
-    app.state.engine = InferenceEngine(cfg.BEST_CKPT)
-    print("[Spectofind] Model loaded — ready to serve")
+    # ── BEATs model ──────────────────────────────────────────────────────
+    try:
+        from ui.backend.beats_engine import BeatsEngine
+        print("[Spectofind] Loading BEATs model ...")
+        app.state.beats_engine = BeatsEngine()
+        print("[Spectofind] BEATs model loaded")
+    except Exception as e:
+        print(f"[Spectofind] BEATs model failed to load: {e}")
+        app.state.beats_engine = None
+
+    # Default active model: BEATs if available, else custom
+    if app.state.beats_engine is not None:
+        app.state.active_model = "beats"
+        app.state.engine = app.state.beats_engine
+    elif app.state.custom_engine is not None:
+        app.state.active_model = "custom"
+        app.state.engine = app.state.custom_engine
+    else:
+        app.state.active_model = "none"
+        app.state.engine = None
+
+    print(f"[Spectofind] Active model: {app.state.active_model}")
     yield
     # Cleanup (nothing to do)
 
 
 app = FastAPI(
     title="Spectofind API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
-# CORS — allow the Vite dev server
+# CORS — allow development access from any network device
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,4 +85,9 @@ app.include_router(inference_router, prefix="/api/infer", tags=["inference"])
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "model_loaded": hasattr(app.state, "engine")}
+    return {
+        "status": "ok",
+        "active_model": getattr(app.state, "active_model", "none"),
+        "beats_loaded": getattr(app.state, "beats_engine", None) is not None,
+        "custom_loaded": getattr(app.state, "custom_engine", None) is not None,
+    }

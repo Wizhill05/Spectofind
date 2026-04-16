@@ -24,10 +24,28 @@ export function getTrainingHistoryImageUrl(): string {
 
 export function getWebSocketUrl(): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // In dev, connect directly to the FastAPI server
-  return `${proto}//localhost:8000/api/infer/stream`;
+  // Route through Vite proxy to support network IP access
+  return `${proto}//${window.location.host}/api/infer/stream`;
 }
 
 export function getAudioSampleUrl(classIdx: number): string {
   return `${BASE}/api/dashboard/audio-sample/${classIdx}`;
+}
+
+export async function switchModel(model: string): Promise<{ active_model: string; error?: string }> {
+  const res = await fetch(`${BASE}/api/infer/switch-model`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model }),
+  });
+  return res.json();
+}
+
+export async function getActiveModel(): Promise<{
+  active_model: string;
+  beats_available: boolean;
+  custom_available: boolean;
+}> {
+  const res = await fetch(`${BASE}/api/infer/active-model`);
+  return res.json();
 }

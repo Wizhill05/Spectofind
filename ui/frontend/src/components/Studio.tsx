@@ -1,9 +1,38 @@
+import { useEffect, useState } from 'react';
 import { useAudioStream } from '../hooks/useAudioStream';
 import SpectrogramCanvas from './SpectrogramCanvas';
+import { getActiveModel, switchModel } from '../api';
 import type { Prediction } from '../types';
 
 export default function Studio() {
   const { isRecording, analyser, predictions, wsConnected, sendProgress, start, stop } = useAudioStream();
+  const [activeModel, setActiveModel] = useState<string>('beats');
+  const [beatsAvail, setBeatsAvail] = useState(false);
+  const [customAvail, setCustomAvail] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    getActiveModel().then((data) => {
+      setActiveModel(data.active_model);
+      setBeatsAvail(data.beats_available);
+      setCustomAvail(data.custom_available);
+    }).catch(() => {});
+  }, []);
+
+  const handleModelSwitch = async (model: string) => {
+    if (switching || model === activeModel) return;
+    setSwitching(true);
+    try {
+      const result = await switchModel(model);
+      if (!result.error) {
+        setActiveModel(result.active_model);
+      }
+    } catch (e) {
+      console.error('Failed to switch model:', e);
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const handleToggle = async () => {
     if (isRecording) {
@@ -24,6 +53,32 @@ export default function Studio() {
       <div className="card" style={{ padding: '16px' }}>
         <div className="card__title">Spectrogram_Feed</div>
         <SpectrogramCanvas analyser={analyser} isRecording={isRecording} />
+      </div>
+
+      {/* Model Toggle */}
+      <div className="model-toggle">
+        <span className="model-toggle__label">MODEL:</span>
+        <div className="model-toggle__buttons">
+          <button
+            className={`model-toggle__btn ${activeModel === 'custom' ? 'model-toggle__btn--active' : ''}`}
+            onClick={() => handleModelSwitch('custom')}
+            disabled={!customAvail || switching}
+            id="model-custom"
+          >
+            CUSTOM
+          </button>
+          <button
+            className={`model-toggle__btn ${activeModel === 'beats' ? 'model-toggle__btn--active' : ''}`}
+            onClick={() => handleModelSwitch('beats')}
+            disabled={!beatsAvail || switching}
+            id="model-beats"
+          >
+            BEATs
+          </button>
+        </div>
+        <span className="model-toggle__info">
+          {activeModel === 'beats' ? '527 CLASSES // AUDIOSET' : '50 CLASSES // ESC-50'}
+        </span>
       </div>
 
       {/* Inference countdown bar */}
