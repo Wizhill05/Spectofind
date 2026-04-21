@@ -1,137 +1,241 @@
+<div align="center">
+
 # 🔊 Spectofind
 
-**Spectrogram-based environmental sound classifier** using transfer learning on EfficientNet-B0.
+### Advanced Environmental Sound Classification Engine
 
-Converts raw audio into Mel-spectrogram images and applies a pretrained computer vision model to classify 50 classes of environmental sounds — breathing, fan, rain, keyboard, dog bark, and more.
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/license/mit)
+[![Framework](https://img.shields.io/badge/framework-PyTorch-ee4c2c.svg)](https://pytorch.org/)
+[![UI](https://img.shields.io/badge/UI-React%20%2B%20Vite-61dafb.svg)](https://vitejs.dev/)
 
----
+<p align="center">
+  <strong>Identify environmental sounds in real-time with machine learning</strong>
+</p>
 
-## How It Works
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [Contributing](#-contributing)
 
-```
-Audio WAV ──► Mel-Spectrogram (PNG) ──► EfficientNet-B0 ──► 50 class prediction
-                  (cached pre-computed)     (ImageNet pretrained)
-```
-
-The key insight: **spectrograms are just images**. By converting audio to colour-coded time-frequency images, we can leverage the full power of ImageNet-pretrained CV models — no need to train from scratch.
-
----
-
-## Dataset: ESC-50
-
-- **2,000 clips** × 5 seconds each, 44.1 kHz mono
-- **50 classes** across 5 categories: Animals, Nature, Human sounds, Interior, Exterior
-- Download size: ~600 MB
-- License: CC BY (free to use)
-- Auto-downloaded on first run
+</div>
 
 ---
 
-## Setup
+## 📋 Overview
 
-Requires [uv](https://github.com/astral-sh/uv) and Python ≥ 3.10.
+**Spectofind** is a high-performance environmental sound classifier that uses transfer learning on an EfficientNet-B0 backbone. It converts raw audio into Mel-spectrogram images and applies computer vision techniques to classify 50 different classes of environmental sounds — from breathing and rain to dog barks and sirens.
+
+### 🎯 Use Cases
+
+- **Real-Time Detection**: Monitor microphone inputs and instantly identify surrounding environmental sounds.
+- **Audio Analysis**: Batch classify saved `.wav` files.
+- **Model Training**: A highly optimized pipeline for fast CNN training on the ESC-50 dataset.
+- **Visual Analytics**: Interactive web dashboard to monitor training health, accuracy, and live classification.
+
+## 💡 Why I Made It
+
+Analyzing raw audio waveforms is notoriously difficult and computationally expensive. However, when you convert audio into colour-coded time-frequency images (spectrograms), you can leverage the immense power of ImageNet-pretrained computer vision models.
+
+Spectofind was built to demonstrate how transforming audio into the visual domain allows models like EfficientNet to excel at sound classification without needing to train from scratch. The newly added brutalist web UI takes this a step further, providing a professional, real-time visual interface for model interactions and live telemetry.
+
+## ✨ Features
+
+<table>
+<tr>
+<td>
+
+### 🖥️ Core Engine
+
+- 🚀 **Pre-computed Spectrograms** for blazing fast training
+- 🎛️ **Mixed Precision (AMP)** for low VRAM usage
+- 🎯 **50 Sound Classes** support out-of-the-box
+- 🎤 **Live Mic Inference** via CLI or Web UI
+- 📈 **SpecAugment** for robust model generalization
+
+</td>
+<td>
+
+### 🌟 Web Dashboard (New!)
+
+- 📱 **Mobile Responsive** brutalist, sharp monochrome design
+- 📊 **Real-time Telemetry** for model evaluation
+- 🔊 **Interactive Class Matrix** with audio sample playback
+- 🎙️ **Recording Studio** with live spectrogram visualization
+- ⚡ **WebSocket Streaming** for low-latency classification
+
+</td>
+</tr>
+</table>
+
+## 🚀 Installation
+
+### Prerequisites
 
 ```bash
-# Install dependencies (first time only)
-uv sync
+# Requires uv package manager and Python >= 3.10
+# Install uv if you haven't already:
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-> **GPU Note:** This project uses CUDA. Install PyTorch with CUDA support:
-> ```bash
-> uv add torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-> ```
+### Clone and Setup
 
----
+```bash
+# Clone the repository
+git clone https://github.com/your-username/spectofind.git
+cd spectofind
 
-## Workflow
+# Install Python backend dependencies
+uv sync
 
-### 1. Download the dataset
+# Install PyTorch with CUDA support (Highly Recommended)
+uv add torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Install Frontend dependencies
+cd ui/frontend
+npm install
+```
+
+## 📖 Usage
+
+### 🎨 Web Dashboard Mode (Recommended)
+
+Launch the modern graphical interface. This requires running both the backend API and the frontend dev server.
+
+**Terminal 1 (Backend):**
+
+```bash
+uv run uvicorn ui.backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Terminal 2 (Frontend):**
+
+```bash
+cd ui/frontend
+npm run dev
+```
+
+Open `http://localhost:5173/` in your browser.
+
+<details>
+<summary><strong>GUI Features</strong></summary>
+
+- **Dashboard**: View model parameters, training loss/accuracy charts, and a full class accuracy matrix.
+- **Audio Previews**: Click "PLAY SAMPLE" in the Class Matrix to hear dataset examples.
+- **Recording Studio**: Stream your microphone to the backend and watch real-time inference telemetry and live spectrograms.
+</details>
+
+### 💻 CLI Pipeline
+
+The CLI provides the complete pipeline for dataset management, training, and inference.
+
+#### 1. Download & Prep
+
 ```bash
 uv run python -m spectofind.dataset
-```
-Downloads and verifies ESC-50 into `data/ESC-50/`.
-
-### 2. Pre-compute spectrograms
-```bash
 uv run python -m spectofind.preprocessing
 ```
-Converts all 2,000 WAV files to colour PNG spectrograms in `spectrograms/`.  
-This runs **once** — subsequent training epochs load PNGs directly (fast!).
 
-### 3. Train
-```bash
-uv run python -m spectofind.train
-```
-Trains EfficientNet-B0 on folds 1–4, validates on fold 5.  
-- **Expected time:** ~15–20 minutes on RTX 4060  
-- **Expected accuracy:** ~82–87% on ESC-50 fold 5
+#### 2. Train & Evaluate
 
-Options:
 ```bash
-uv run python -m spectofind.train --epochs 40 --batch-size 64
-```
+# Train the model (~15 mins on RTX 4060)
+uv run python -m spectofind.train --epochs 30 --batch-size 64
 
-### 4. Evaluate
-```bash
+# Evaluate per-class accuracy
 uv run python -m spectofind.evaluate
 ```
-Prints per-class accuracy table and saves `results/confusion_matrix.png`.
 
-### 5. Classify a sound file
+#### 3. Inference
+
 ```bash
+# Classify an audio file
 uv run python -m spectofind.infer --file path/to/audio.wav
-uv run python -m spectofind.infer --file path/to/audio.wav --top-k 5
-```
 
-### 6. Live microphone inference
-```bash
+# Live microphone classification
 uv run python -m spectofind.infer --mic
 ```
-Records 5-second chunks from your mic and classifies in real time.
 
----
-
-## Training Optimizations
-
-| Optimization | Benefit |
-|---|---|
-| Pre-computed spectrogram PNGs | No per-epoch audio decoding |
-| Mixed Precision (AMP) | ~2× speed boost, lower VRAM |
-| `cudnn.benchmark = True` | Auto-selects fastest convolution kernels |
-| `pin_memory` + `num_workers=4` | Fast CPU→GPU data transfer |
-| `channels_last` memory format | Faster convolutions on Ampere GPUs (RTX 40xx) |
-| Frozen early backbone (first 5 epochs) | Head warms up before full fine-tuning |
-| SpecAugment (freq + time masking) | Better generalization, ~3–5% accuracy boost |
-| OneCycleLR scheduler | Fast convergence |
-
----
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
 Spectofind/
-├── src/spectofind/
-│   ├── config.py          # All hyperparameters
-│   ├── dataset.py         # ESC-50 download + PyTorch Dataset
-│   ├── preprocessing.py   # Audio → Mel-spectrogram pipeline
-│   ├── model.py           # EfficientNet-B0 + classifier head
-│   ├── train.py           # Training loop
-│   ├── evaluate.py        # Per-class accuracy + confusion matrix
-│   └── infer.py           # File + live mic inference
-├── data/ESC-50/           # Dataset (auto-downloaded)
-├── spectrograms/          # Pre-computed PNG spectrograms
-├── checkpoints/           # Saved model weights
-└── results/               # training_history.png, confusion_matrix.png
+├── src/spectofind/        # Core ML Engine
+│   ├── config.py          # Global hyperparameters
+│   ├── dataset.py         # ESC-50 downloader
+│   ├── preprocessing.py   # Audio to Mel-spectrogram
+│   └── train.py           # Training loop
+├── ui/
+│   ├── backend/           # FastAPI & WebSocket server
+│   └── frontend/          # React + Vite Brutalist UI
+├── data/                  # Auto-downloaded ESC-50
+├── spectrograms/          # Pre-computed image cache
+└── checkpoints/           # Saved model weights
 ```
 
+### 🔧 How It Works
+
+1. **Audio Transformation**: `librosa` converts 5s audio chunks into 128-band Mel-spectrogram PNGs.
+2. **Transfer Learning**: An EfficientNet-B0 backbone (pretrained on ImageNet) processes the spectrograms.
+3. **WebSockets**: The React frontend records audio chunks and streams them via WebSockets to the FastAPI backend.
+4. **Real-time Processing**: The backend caches the model in memory, processes incoming streams, and returns predictions and confidence scores instantly.
+
+## 🛠️ Advanced Configuration
+
+Edit `src/spectofind/config.py` to modify system behavior:
+
+```python
+BATCH_SIZE = 64
+NUM_EPOCHS = 30
+SAMPLE_RATE = 22050
+IMG_SIZE = 224
+MIC_DURATION = 5.0 # Seconds per mic inference chunk
+```
+
+## 🐛 Troubleshooting
+
+<details>
+<summary><strong>CUDA / PyTorch Issues</strong></summary>
+
+If training is slow, ensure PyTorch is utilizing your GPU:
+
+```bash
+uv run python -c "import torch; print(torch.cuda.is_available())"
+```
+
+</details>
+
+<details>
+<summary><strong>Microphone Not Detected (Web UI)</strong></summary>
+
+Ensure you have granted microphone permissions to your browser. Browsers may restrict microphone access on `http` unless running on `localhost`.
+
+</details>
+
+## ⚠️ Known Limitations
+
+- **Microphone Environment Noise**: Live inference is highly sensitive to background static. Ensure a clean audio input.
+- **Dataset Bias**: The model is tuned heavily to the ESC-50 dataset. Unseen environmental categories might trigger false positives.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Built with PyTorch, FastAPI, React, and Vite.
+- Dataset provided by the [ESC-50 project](https://github.com/karoldvl/ESC-50).
+
+## 📞 Support
+
+- 🐛 Report bugs by opening an issue.
+- 💡 Request features via GitHub issues.
+
 ---
-
-## ESC-50 Classes
-
-| Category | Classes |
-|---|---|
-| 🐾 Animals | dog, rooster, pig, cow, frog, cat, hen, insects, sheep, crow |
-| 🌊 Nature | rain, sea_waves, crackling_fire, crickets, chirping_birds, water_drops, wind, pouring_water, toilet_flush, thunderstorm |
-| 👤 Human | crying_baby, sneezing, clapping, breathing, coughing, footsteps, laughing, brushing_teeth, snoring, drinking_sipping |
-| 🏠 Interior | door_knock, mouse_click, keyboard_typing, door_wood_creaks, can_opening, washing_machine, vacuum_cleaner, clock_alarm, clock_tick, glass_breaking |
-| 🏙 Exterior | helicopter, chainsaw, siren, car_horn, engine, train, church_bells, airplane, fireworks, hand_saw |
